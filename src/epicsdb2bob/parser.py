@@ -36,24 +36,36 @@ def order_dbs_by_includes(databases: dict[str, Database]) -> OrderedDict[str, Da
     return ordered_dbs
 
 
+def parse_epics_db_file(file_path: Path) -> dict[str, Database]:
+    if not file_path.exists() or not file_path.is_file():
+        raise FileNotFoundError(f"EPICS DB file not found: {file_path}")
+    elif file_path.suffix not in (".db", ".template"):
+        logger.warning(f"File is not an EPICS DB or template file: {file_path}")
+        return {}
+
+    try:
+        database = load_database_file(
+            file_path, load_includes_strategy=LoadIncludesStrategy.IGNORE
+        )
+        logger.info(f"Parsed {file_path}")
+        return {file_path.stem.split(".", -1)[0]: database}
+    except StopIteration:
+        logger.warning(f"Failed to parse {file_path} as an EPICS database")
+        return {}
+
+
 def find_epics_dbs_and_templates(
     search_path: Path, macros: dict[str, str] | None = None
 ) -> dict[str, Database]:
     epics_databases: dict[str, Database] = {}
+
+    if os.path.isfile(search_path):
+        return parse_epics_db_file(search_path)
+
     for dirpath, _, filenames in os.walk(search_path):
         for file in filenames:
             full_file_path = Path(dirpath) / file
-            if file.endswith((".db", ".template")):
-                try:
-                    epics_databases[file.split(".", -1)[0]] = load_database_file(
-                        full_file_path,
-                        load_includes_strategy=LoadIncludesStrategy.IGNORE,
-                    )
-                    logger.info(f"Parsed {full_file_path}")
-                except StopIteration:
-                    logger.warning(
-                        f"Failed to parse {full_file_path} as an EPICS database"
-                    )
+            epics_databases.update(parse_epics_db_file(full_file_path))
 
     epics_databases = order_dbs_by_includes(epics_databases)
 

@@ -1,7 +1,9 @@
 from collections.abc import Callable
+from pathlib import Path
 
 import pytest
 from epicsdbtools import Database, Record
+from phoebusgen.widget import Label
 
 from epicsdb2bob.config import DEFAULT_RTYP_TO_WIDGET_MAP, EPICSDB2BOBConfig
 
@@ -67,7 +69,7 @@ def db_with_readbacks(simple_db, readback_record_factory) -> Database:
 
 
 @pytest.fixture
-def compound_db(simple_db_factory, db_with_readbacks) -> tuple[Database, Database]:
+def compound_db(simple_db_factory) -> tuple[Database, Database]:
     db = simple_db_factory("simple")
     compound_db = simple_db_factory("compound")
     compound_db.add_included_template("simple.template", database=None)
@@ -77,3 +79,26 @@ def compound_db(simple_db_factory, db_with_readbacks) -> tuple[Database, Databas
 @pytest.fixture
 def default_config() -> EPICSDB2BOBConfig:
     return EPICSDB2BOBConfig()
+
+
+@pytest.fixture
+def simple_label() -> Label:
+    return Label("SimpleLabel", "Text", 10, 10, 100, 30)
+
+
+@pytest.fixture
+def simple_db_file_factory(
+    tmp_path, simple_db_factory
+) -> Callable[[int, str], list[Path]]:
+    def _db_file_factory(num_dbs: int, extension: str = ".db") -> list[Path]:
+        db_file_paths = []
+        for i in range(num_dbs):
+            name = f"simple_db_{i + 1}"
+            db = simple_db_factory(name)
+            db_file_path = tmp_path / f"{name}{extension}"
+            with open(db_file_path, "w") as f:
+                f.write(str(db))
+            db_file_paths.append(db_file_path)
+        return db_file_paths
+
+    return _db_file_factory

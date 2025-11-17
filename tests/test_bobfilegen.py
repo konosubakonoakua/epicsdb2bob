@@ -8,6 +8,7 @@ from epicsdb2bob.bobfile_gen import (
     add_dividing_line,
     add_label_for_record,
     add_widget_for_record,
+    align_widget_horizontally,
     generate_bobfile_for_db,
     get_height_width_of_bobfile,
     get_next_widget_position,
@@ -17,6 +18,7 @@ from epicsdb2bob.bobfile_gen import (
 )
 from epicsdb2bob.config import (
     DEFAULT_RTYP_TO_WIDGET_MAP,
+    HorizontalAlignment,
     TitleBarFormat,
 )
 
@@ -45,6 +47,21 @@ def test_get_bobfile_height_width():
 def test_template_to_bobfile_name():
     bobfile_name = template_to_bob("my_template.template")
     assert bobfile_name == "my_template.bob"
+
+
+@pytest.mark.parametrize(
+    "alignment",
+    [
+        (HorizontalAlignment.LEFT),
+        (HorizontalAlignment.CENTER),
+        (HorizontalAlignment.RIGHT),
+    ],
+)
+def test_align_widget_horizontally(simple_label, alignment):
+    align_widget_horizontally(simple_label, alignment)
+    assert simple_label.get_element_value("horizontal_alignment") == str(
+        alignment.value
+    )
 
 
 @pytest.mark.parametrize(

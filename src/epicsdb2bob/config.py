@@ -30,20 +30,12 @@ class TitleBarFormat(str, Enum):
     FULL = "full"  # Full title bar
 
 
-class HorizontalAlignment(str, Enum):
+class HorizontalAlignment(int, Enum):
     """Determines the alignment of title bar text."""
 
-    LEFT = "left"  # Left aligned
-    CENTER = "center"  # Centered
-    RIGHT = "right"  # Right aligned
-
-
-class VerticalAlignment(str, Enum):
-    """Determines the vertical alignment of title bar text."""
-
-    TOP = "top"  # Top aligned
-    MIDDLE = "middle"  # Centered
-    BOTTOM = "bottom"  # Bottom aligned
+    LEFT = 0  # Left aligned
+    CENTER = 1  # Centered
+    RIGHT = 2  # Right aligned
 
 
 class MacroSetLevel(str, Enum):
