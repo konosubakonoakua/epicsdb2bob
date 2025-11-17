@@ -21,16 +21,24 @@ from epicsdb2bob.config import (
 )
 
 
-def test_generate_bobfiles(db_with_readbacks, default_config):
+def test_generate_bobfiles(db_with_readbacks, default_config, tmp_path):
     screen = generate_bobfile_for_db(
         "DB With Readbacks", db_with_readbacks, {}, default_config
     )
-    screen.write_screen("tests/test_outputs/db_with_readbacks.bob")
+    screen.write_screen(tmp_path / "db_with_readbacks.bob")
+
+    with open(tmp_path / "db_with_readbacks.bob", "r") as f:
+        gen_bobfile_content = f.read()
+
+    with open("tests/outputs/db_with_readbacks.bob", "r") as f:
+        expected_bobfile_content = f.read()
+
+    assert gen_bobfile_content == expected_bobfile_content
 
 
 def test_get_bobfile_height_width():
     height, width = get_height_width_of_bobfile(
-        "tests/test_outputs/db_with_readbacks.bob"
+        "tests/outputs/db_with_readbacks.bob"
     )
     assert height == 640
     assert width == 490
