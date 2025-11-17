@@ -255,10 +255,13 @@ def generate_bobfile_for_db(
     current_x_pos = start_x_pos
     current_y_pos = start_y_pos
 
+    widget_counters: dict[type[Widget], int] = {}
     col_width_widgets = 2
 
     border = add_border(config)
     if border:
+        widget_counters[Rectangle] = widget_counters.get(Rectangle, 0) + 1
+        border.name(f"Rectangle_{widget_counters[Rectangle]}")
         screen.add_widget(border)
 
     records_seen = []
@@ -290,6 +293,12 @@ def generate_bobfile_for_db(
                 col_width_widgets = max(len(widgets_for_record), col_width_widgets)
 
                 for widget in widgets_for_record:
+                    widget_counters[type(widget)] = (
+                        widget_counters.get(type(widget), 0) + 1
+                    )
+                    widget.name(
+                        f"{type(widget).__name__}_{widget_counters[type(widget)]}"
+                    )
                     logger.info(
                         f"Adding {widget.__class__.__name__} widget for {record.name}"
                     )
@@ -304,9 +313,11 @@ def generate_bobfile_for_db(
                     current_x_pos, current_y_pos, col_width_widgets, config
                 )
                 if current_y_pos == start_y_pos:
+                    widget_counters[Rectangle] = widget_counters.get(Rectangle, 0) + 1
                     dividing_line = add_dividing_line(
                         current_x_pos - config.widget_offset, current_y_pos, config
                     )
+                    dividing_line.name(f"Rectangle_{widget_counters[Rectangle]}")
                     screen.add_widget(dividing_line)
                     col_width_widgets = 2
 
@@ -319,6 +330,8 @@ def generate_bobfile_for_db(
 
     title_bar = add_title_bar(name, config, screen_width - config.widget_offset)
     if title_bar:
+        widget_counters[Label] = widget_counters.get(Label, 0) + 1
+        title_bar.name(f"Label_{widget_counters[Label]}")
         screen.add_widget(title_bar)
 
     if config.title_bar_format == TitleBarFormat.MINIMAL and border is not None:

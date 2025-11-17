@@ -27,19 +27,17 @@ def test_generate_bobfiles(db_with_readbacks, default_config, tmp_path):
     )
     screen.write_screen(tmp_path / "db_with_readbacks.bob")
 
-    with open(tmp_path / "db_with_readbacks.bob", "r") as f:
+    with open(tmp_path / "db_with_readbacks.bob") as f:
         gen_bobfile_content = f.read()
 
-    with open("tests/outputs/db_with_readbacks.bob", "r") as f:
+    with open("tests/outputs/db_with_readbacks.bob") as f:
         expected_bobfile_content = f.read()
 
     assert gen_bobfile_content == expected_bobfile_content
 
 
 def test_get_bobfile_height_width():
-    height, width = get_height_width_of_bobfile(
-        "tests/outputs/db_with_readbacks.bob"
-    )
+    height, width = get_height_width_of_bobfile("tests/outputs/db_with_readbacks.bob")
     assert height == 640
     assert width == 490
 
