@@ -51,4 +51,11 @@ jobs:
 
       - name: Run Unit Tests
         run: |
-          pytest
+          pytest --cov=epicsdb2bob --cov-report=xml:coverage.xml
+
+      - name: Upload Coverage To Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          name: Coverage
+          files: coverage.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
