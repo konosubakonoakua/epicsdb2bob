@@ -1,6 +1,6 @@
 # epicsdb2bob
 
-[![CI](https://github.com/NSLS2/epicsdb2bob/actions/workflows/ci.yaml/badge.svg)](https://github.com/NSLS2/epicsdb2bob/actions/workflows/ci.yaml) [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue?style=flat-square)](https://opensource.org/license/bsd-3-clause)
+[![CI](https://github.com/NSLS2/epicsdb2bob/actions/workflows/ci.yaml/badge.svg)](https://github.com/NSLS2/epicsdb2bob/actions/workflows/ci.yaml) [![Coverage](https://codecov.io/github/jwlodek/epicsdb2bob/graph/badge.svg?token=7VS242V6D7)](https://codecov.io/github/jwlodek/epicsdb2bob) [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue?style=flat-square)](https://opensource.org/license/bsd-3-clause)
 
 CLI utility for auto-creating phoebus engineering screens from EPICS db templates.
 
