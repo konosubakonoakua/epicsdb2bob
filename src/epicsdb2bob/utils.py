@@ -3,6 +3,7 @@ import os
 from collections import OrderedDict
 from pathlib import Path
 
+import rpack
 from epicsdbtools import (
     Database,
     LoadIncludesStrategy,
@@ -93,3 +94,59 @@ def find_epics_subs(search_path: Path) -> dict[str, dict[str, list[dict[str, str
                     )
 
     return epics_subs
+
+
+def find_bobfiles_in_search_path(bobfile_search_path: list[Path]) -> dict[str, Path]:
+    written_bobfiles: dict[str, Path] = {}
+
+    for bobfile_dir in bobfile_search_path:
+        for dirpath, _, filenames in os.walk(bobfile_dir):
+            for filename in filenames:
+                if filename.endswith((".bob", ".opi")):
+                    full_path = Path(os.path.join(dirpath, filename))
+                    logger.info(f"Found additional bob/opi file: {full_path}")
+                    written_bobfiles[filename] = full_path
+    return written_bobfiles
+
+
+def pack_close_to_square(
+    rectangle_sizes: list[tuple[int, int]], max_height: int, padding: int
+) -> list[tuple[int, int]]:
+    """Pack rectangles into as close to a square as possible.
+
+    Args:
+        rectangle_sizes (list[tuple[int, int]]): List of (width, height) for each rect
+        max_height (int): Maximum allowed height for the packed rectangles.
+
+    Returns:
+        tuple[int, int]: (total_width, total_height) of the packed rectangles.
+    """
+
+    # Add padding to each rectangle size
+    padded_rectangle_sizes = [
+        (width + padding, height + padding) for width, height in rectangle_sizes
+    ]
+
+    height = 100
+    width = 100
+    increment = 100
+
+    iteration = 0
+    while True:
+        try:
+            if height < width and height + increment <= max_height:
+                height += increment
+            else:
+                width += increment
+            packed_x_y_positions = rpack.pack(padded_rectangle_sizes, width, height)
+            break
+        except rpack.PackingImpossibleError as err:
+            iteration += 1
+            if iteration > 1000:
+                raise RuntimeError("Unable to pack rects within max height.") from err
+            else:
+                logger.warning(
+                    f"Packing impossible at dims {width}x{height}, increasing size."
+                )
+
+    return packed_x_y_positions

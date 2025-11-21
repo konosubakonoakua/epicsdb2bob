@@ -10,7 +10,11 @@ from . import __version__
 from .bobfile_gen import generate_bobfile_for_db, generate_bobfile_for_substitution
 from .config import EPICSDB2BOBConfig
 from .palettes import BUILTIN_PALETTES
-from .parser import find_epics_dbs_and_templates, find_epics_subs
+from .utils import (
+    find_bobfiles_in_search_path,
+    find_epics_dbs_and_templates,
+    find_epics_subs,
+)
 
 __all__ = ["main"]
 
@@ -158,21 +162,14 @@ def main() -> None:
             epicsdbtools_logger.setLevel(logging.DEBUG)
         logger.debug("Loaded configuration from .epicsdb2bob.yml")
     else:
+        args.palette = BUILTIN_PALETTES[args.palette]
         config = EPICSDB2BOBConfig()
         logger.debug("No configuration file found, using defaults.")
         for key, value in vars(args).items():
             if value is not None:
                 setattr(config, key, value)
 
-    written_bobfiles: dict[str, Path] = {}
-
-    for bobfile_dir in config.bobfile_search_path:
-        for dirpath, _, filenames in os.walk(bobfile_dir):
-            for filename in filenames:
-                if filename.endswith((".bob", ".opi")):
-                    full_path = Path(os.path.join(dirpath, filename))
-                    logger.info(f"Found additional bob/opi file: {full_path}")
-                    written_bobfiles[filename] = full_path
+    written_bobfiles = find_bobfiles_in_search_path(config.bobfile_search_path)
 
     macros = (
         {macro.split("=")[0]: macro.split("=")[1] for macro in args.macros}

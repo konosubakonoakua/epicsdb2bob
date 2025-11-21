@@ -1,4 +1,6 @@
+import os
 import random
+from pathlib import Path
 
 import pytest
 from phoebusgen.widget import Label, Rectangle
@@ -10,6 +12,7 @@ from epicsdb2bob.bobfile_gen import (
     add_widget_for_record,
     align_widget_horizontally,
     generate_bobfile_for_db,
+    generate_bobfile_for_substitution,
     get_height_width_of_bobfile,
     get_next_widget_position,
     get_next_x_position,
@@ -18,14 +21,20 @@ from epicsdb2bob.bobfile_gen import (
 )
 from epicsdb2bob.config import (
     DEFAULT_RTYP_TO_WIDGET_MAP,
+    EmbedLevel,
     HorizontalAlignment,
     TitleBarFormat,
+)
+from epicsdb2bob.utils import (
+    find_bobfiles_in_search_path,
+    find_epics_dbs_and_templates,
+    find_epics_subs,
 )
 
 
 def test_generate_bobfiles(db_with_readbacks, default_config, tmp_path):
     screen = generate_bobfile_for_db(
-        "DB With Readbacks", db_with_readbacks, {}, default_config
+        "db_with_readbacks", db_with_readbacks, {}, default_config
     )
     screen.write_screen(tmp_path / "db_with_readbacks.bob")
 
@@ -217,3 +226,39 @@ def test_get_next_widget_position(
     )
     assert new_x == expected_x
     assert new_y == expected_y
+
+
+def test_generate_bobfile_for_substitutions(tmp_path, default_config):
+    default_config.embed = EmbedLevel.ALL
+    input_file_path = Path("tests") / "inputs"
+
+    written_bobfiles: dict[str, Path] = find_bobfiles_in_search_path(
+        default_config.bobfile_search_path
+    )
+
+    databases = find_epics_dbs_and_templates(input_file_path, {})
+    for name in databases:
+        screen = generate_bobfile_for_db(name, databases[name], {}, default_config)
+
+        full_output_path = os.path.join(tmp_path, f"{name}.bob")
+        screen.write_screen(full_output_path)
+        written_bobfiles[os.path.basename(full_output_path)] = Path(full_output_path)
+
+    name, substitution = list(find_epics_subs(input_file_path).items())[0]
+    screen = generate_bobfile_for_substitution(
+        name,
+        substitution,
+        written_bobfiles,
+        default_config,
+    )
+    full_output_path = os.path.join(tmp_path, f"{name}.bob")
+    screen.write_screen(full_output_path)
+    written_bobfiles[os.path.basename(full_output_path)] = Path(full_output_path)
+
+    with open(full_output_path) as f:
+        gen_bobfile_content = f.read()
+
+    with open("tests/outputs/example_sub.bob") as f:
+        expected_bobfile_content = f.read()
+
+    assert gen_bobfile_content == expected_bobfile_content

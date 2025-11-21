@@ -35,6 +35,7 @@ from .config import (
     TitleBarFormat,
 )
 from .palettes import BLACK, WHITE
+from .utils import pack_close_to_square
 
 logger = logging.getLogger("epicsdb2bob")
 
@@ -151,26 +152,31 @@ def add_widget_for_record(
 
 
 def add_title_bar(
-    name: str, config: EPICSDB2BOBConfig, title_bar_width: int
+    name: str,
+    config: EPICSDB2BOBConfig,
+    title_bar_width: int,
+    top_level_titlebar: bool = False,
 ) -> Label | None:
-    if config.title_bar_format == TitleBarFormat.NONE:
+    title_bar_format = (
+        config.title_bar_format if not top_level_titlebar else TitleBarFormat.FULL
+    )
+
+    if title_bar_format == TitleBarFormat.NONE:
         return None
 
     title_bar = Label(
-        short_uuid(),
+        "TitleBar",
         name,
-        config.widget_offset
-        if config.title_bar_format == TitleBarFormat.MINIMAL
-        else 0,
+        config.widget_offset if title_bar_format == TitleBarFormat.MINIMAL else 0,
         0,
         title_bar_width,
-        config.title_bar_heights[config.title_bar_format],
+        config.title_bar_heights[title_bar_format],
     )
     title_bar.foreground_color(*WHITE)
-    if config.title_bar_format == TitleBarFormat.FULL:
+    if title_bar_format == TitleBarFormat.FULL:
         title_bar.font_size(config.font_size * 2)
         title_bar.horizontal_alignment_center()
-    elif config.title_bar_format == TitleBarFormat.MINIMAL:
+    elif title_bar_format == TitleBarFormat.MINIMAL:
         title_bar.auto_size()
         title_bar.font_size(config.font_size + 2)
         title_bar.border_width(2)
@@ -328,7 +334,11 @@ def generate_bobfile_for_db(
     else:
         screen_height = current_y_pos + config.widget_offset
 
-    title_bar = add_title_bar(name, config, screen_width - config.widget_offset)
+    title_bar = add_title_bar(
+        name.replace("_", " ").replace("-", " "),
+        config,
+        screen_width - config.widget_offset,
+    )
     if title_bar:
         widget_counters[Label] = widget_counters.get(Label, 0) + 1
         title_bar.name(f"Label_{widget_counters[Label]}")
@@ -340,7 +350,7 @@ def generate_bobfile_for_db(
             screen_height - int(config.title_bar_heights[config.title_bar_format] / 2)
         )
 
-    screen.background_color(*config.background_color)
+    screen.background_color(*config.palette.screen_bg)
 
     screen.height(screen_height)
     screen.width(screen_width)
@@ -372,21 +382,16 @@ def generate_bobfile_for_substitution(
     """
     Generate a BOB file for a substitution.
     """
+    substitution_name.replace("_", " ").replace("-", " ").title()
     screen = Screen(substitution_name)
     screen.background_color(*config.background_color)
 
-    screen_width = 0
-    max_col_width = 0
-    hit_max_y_pos = False
-
-    current_x_pos = config.widget_offset
-    current_y_pos = (
-        config.widget_offset + config.title_bar_heights[config.title_bar_format]
-    )
     launcher_buttons: dict[str, ActionButton] = {}
 
     logger.info(f"Generating screen for substitution: {substitution_name}")
     logger.debug(f"Found bobfiles: {found_bobfiles}")
+
+    embed_rects: dict[Widget, tuple[int, int]] = {}
 
     for template in substitution:
         template_instances = substitution[template]
@@ -402,33 +407,20 @@ def generate_bobfile_for_substitution(
                 )
                 embed_height = embed_raw_height + config.widget_offset
                 embed_width = embed_raw_width + config.widget_offset
-                if (
-                    current_y_pos + embed_height
-                    > config.max_screen_height
-                    + config.title_bar_heights[TitleBarFormat.FULL]
-                ):
-                    current_y_pos = (
-                        config.widget_offset
-                        + config.title_bar_heights[TitleBarFormat.FULL]
-                    )
-                    current_x_pos += max_col_width + config.widget_offset
-                    max_col_width = 0
 
                 embedded_display = EmbeddedDisplay(
                     short_uuid(),
                     template_to_bob(template),
-                    current_x_pos,
-                    current_y_pos,
+                    0,
+                    0,
                     embed_width,
                     embed_height,
                 )
-                current_y_pos += embed_height + config.widget_offset
 
-                if embed_width > max_col_width:
-                    max_col_width = embed_width
+                embed_rects[embedded_display] = (embed_width, embed_height)
+
                 for macro in instance:
                     embedded_display.macro(macro, instance[macro])
-                screen.add_widget(embedded_display)
 
             elif template in launcher_buttons:
                 launcher_buttons[template].action_open_display(
@@ -439,49 +431,59 @@ def generate_bobfile_for_substitution(
                 )
             else:
                 logger.info(f"Creating launcher button for template: {template}")
+
                 launcher_buttons[template] = ActionButton(
                     short_uuid(),
                     os.path.splitext(template)[0],
                     "",
-                    current_x_pos,
-                    current_y_pos,
+                    0,
+                    0,
                     config.default_widget_width,
                     config.default_widget_height,
                 )
+
                 launcher_buttons[template].action_open_display(
                     template_to_bob(template),
                     "tab",
                     f"{os.path.splitext(template)[0]} {i + 1}",
                     instance,
                 )
-                screen.add_widget(launcher_buttons[template])
-                current_y_pos += config.default_widget_height + config.widget_offset
+                embed_rects[launcher_buttons[template]] = (
+                    config.default_widget_width + config.widget_offset,
+                    config.default_widget_height + config.widget_offset,
+                )
 
-                if config.default_widget_width > max_col_width:
-                    max_col_width = config.default_widget_width
+    packed_x_y_embeds = pack_close_to_square(
+        list(embed_rects.values()),
+        config.max_screen_height,
+        padding=config.widget_offset,
+    )
 
-                if (
-                    current_y_pos
-                    > config.max_screen_height
-                    + config.title_bar_heights[TitleBarFormat.FULL]
-                ):
-                    hit_max_y_pos = True
-                    current_y_pos = (
-                        config.widget_offset
-                        + config.title_bar_heights[TitleBarFormat.FULL]
-                    )
-                    current_x_pos += max_col_width + config.widget_offset
-                    max_col_width = 0
+    embed_stop_positions = [
+        (pos[0] + size[0], pos[1] + size[1])
+        for pos, size in zip(packed_x_y_embeds, embed_rects.values(), strict=False)
+    ]
+    screen_width = max([pos[0] for pos in embed_stop_positions], default=0)
+    screen_height = max([pos[1] for pos in embed_stop_positions], default=0)
+    screen_height = screen_height + 5 * config.widget_offset
 
-    screen_height = current_y_pos + config.widget_offset
-    if hit_max_y_pos:
-        screen_height = config.max_screen_height + config.widget_offset
-    screen_width = current_x_pos + max_col_width + config.widget_offset
+    for i, (xy_position, embed) in enumerate(
+        zip(packed_x_y_embeds, embed_rects.keys(), strict=False)
+    ):
+        embed.x(xy_position[0])
+        embed.y(
+            xy_position[1]
+            + config.title_bar_heights[config.title_bar_format]
+            + 3 * config.widget_offset
+        )
+        embed.name(f"{embed.__class__.__name__}_{i + 1}")
+        screen.add_widget(embed)
 
     title_bar = add_title_bar(
         substitution_name,
         config,
         screen_width - config.widget_offset,
+        top_level_titlebar=True,
     )
     if title_bar:
         screen.add_widget(title_bar)

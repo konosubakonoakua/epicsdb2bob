@@ -2,3 +2,7 @@ venv/
 *.egg*
 *.pyc
 _version.py
+# pixi environments
+.pixi/*
+!.pixi/config.toml
+.htmlcov/

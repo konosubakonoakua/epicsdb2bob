@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from epicsdb2bob.parser import (
+from epicsdb2bob.utils import (
     find_epics_dbs_and_templates,
     order_dbs_by_includes,
     parse_epics_db_file,
@@ -85,3 +85,62 @@ def test_find_epics_dbs_and_templates_compound_db(simple_db, tmp_path: Path):
             assert db == "simple"
         elif i == 1:
             assert db == "compound"
+
+
+def test_order_dbs_by_includes_circular_include(tmp_path: Path):
+    with open(tmp_path / "db1.template", "w") as f:
+        f.write("include db2.template\n")
+
+    with open(tmp_path / "db2.template", "w") as f:
+        f.write("include db1.template\n")
+
+    db1 = parse_epics_db_file(tmp_path / "db1.template")["db1"]
+    db2 = parse_epics_db_file(tmp_path / "db2.template")["db2"]
+
+    databases = {"db1": db1, "db2": db2}
+
+    with pytest.raises(RuntimeError):
+        order_dbs_by_includes(databases)
+
+
+def test_order_dbs_by_includes_unknown_include(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+):
+    with open(tmp_path / "db1.template", "w") as f:
+        f.write("include unknown.template\n")
+
+    db1 = parse_epics_db_file(tmp_path / "db1.template")["db1"]
+
+    databases = {"db1": db1}
+
+    ordered_dbs = order_dbs_by_includes(databases)
+    assert list(ordered_dbs.keys()) == ["db1"]
+
+    with caplog.at_level("WARNING"):
+        order_dbs_by_includes(databases)
+
+    assert "includes unknown templates" in caplog.text
+
+
+def test_parse_epics_db_file_invalid(tmp_path: Path, caplog: pytest.LogCaptureFixture):
+    with open(tmp_path / "invalid.db", "w") as f:
+        f.write("record(bo, )")
+
+    with caplog.at_level("WARNING"):
+        epics_dbs = parse_epics_db_file(tmp_path / "invalid.db")
+
+    assert len(epics_dbs) == 0
+    assert "Failed to parse" in caplog.text
+
+
+def test_parse_epics_db_file_non_db_file(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+):
+    with open(tmp_path / "not_a_db.txt", "w") as f:
+        f.write("Just some text.")
+
+    with caplog.at_level("WARNING"):
+        epics_dbs = parse_epics_db_file(tmp_path / "not_a_db.txt")
+
+    assert len(epics_dbs) == 0
+    assert "is not an EPICS DB or template file" in caplog.text
